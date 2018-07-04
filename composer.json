@@ -4,10 +4,14 @@
     "type": "yii2-extension",
     "keywords": ["yii2","extension", "daemon"],
     "license": "BSD-3-Clause",
+    "support": {
+        "source": "https://github.com/AdvissMedia/yii2-daemon"
+    },
     "authors": [
         {
             "name": "Vladimir Yants",
-            "email": "vladimir.yants@gmail.com"
+            "email": "vladimir.yants@gmail.com",
+            "homepage": "https://github.com/vyants/"
         }
     ],
     "require": {
