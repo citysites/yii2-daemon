@@ -138,7 +138,6 @@ abstract class DaemonController extends Controller
             $target->enabled = false;
         }
         $config = [
-            'class' => 'yii\log\FileTarget',
             'levels' => ['error', 'warning', 'trace', 'info'],
             'logFile' => \Yii::getAlias($this->logDir) . DIRECTORY_SEPARATOR . $this->getProcessName() . '.log',
             'logVars' => [],
