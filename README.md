@@ -10,13 +10,13 @@ The preferred way to install this extension is through [composer](http://getcomp
 Either run
 
 ```
-php composer.phar require --prefer-dist advissMedia/yii2-daemon "*"
+php composer.phar require --prefer-dist advissmedia/yii2-daemon "*"
 ```
 
 or add
 
 ```
-"advissMedia/yii2-daemon": "*"
+"advissmedia/yii2-daemon": "*"
 ```
 
 to the require section of your `composer.json` file.
@@ -30,7 +30,7 @@ Do the following steps:
 <?php
 
 namespace console\controllers;
-use \advissMedia\daemon\controllers\WatcherDaemonController;
+use \advissmedia\daemon\controllers\WatcherDaemonController;
 
 class DaemonsSupervisorController extends WatcherDaemonController
 {
@@ -53,7 +53,7 @@ or get this jobs array from file, for example json array
 <?php
 
 namespace console\controllers;
-use \advissMedia\daemon\controllers\WatcherDaemonController;
+use \advissmedia\daemon\controllers\WatcherDaemonController;
 
 class DaemonsSupervisorController extends WatcherDaemonController
 {
@@ -101,7 +101,7 @@ Usage
 
 namespace console\controllers;
 
-use \advissMedia\daemon\DaemonController;
+use \advissmedia\daemon\DaemonController;
 
 class {NAME}DaemonController extends DaemonController
 {

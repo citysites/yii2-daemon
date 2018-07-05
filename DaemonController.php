@@ -1,6 +1,6 @@
 <?php
 
-namespace advissMedia\daemon;
+namespace advissmedia\daemon;
 
 use yii\base\NotSupportedException;
 use yii\console\Controller;
@@ -11,6 +11,7 @@ use yii\helpers\Console;
  * Class DaemonController
  *
  * @author Vladimir Yants <vladimir.yants@gmail.com>
+ * @update Dmitriy Chernyavskiy <chds@adviss.com>
  */
 abstract class DaemonController extends Controller
 {
@@ -113,11 +114,11 @@ abstract class DaemonController extends Controller
         parent::init();
 
         //set PCNTL signal handlers
-        pcntl_signal(SIGHUP, ['advissMedia\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGTERM, ['advissMedia\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGINT, ['advissMedia\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGUSR1, ['advissMedia\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGCHLD, ['advissMedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGHUP, ['advissmedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGTERM, ['advissmedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGINT, ['advissmedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGUSR1, ['advissmedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGCHLD, ['advissmedia\daemon\DaemonController', 'signalHandler']);
 
         self::$daemon_uptime = time();
     }

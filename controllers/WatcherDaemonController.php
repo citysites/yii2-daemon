@@ -1,8 +1,8 @@
 <?php
 
-namespace advissMedia\daemon\controllers;
+namespace advissmedia\daemon\controllers;
 
-use advissMedia\daemon\DaemonController;
+use advissmedia\daemon\DaemonController;
 use yii\console\ExitCode;
 
 /**
