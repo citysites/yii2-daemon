@@ -5,7 +5,7 @@
     "keywords": ["yii2","extension", "daemon"],
     "license": "BSD-3-Clause",
     "support": {
-        "source": "https://github.com/advissMedia/yii2-daemon"
+        "source": "https://github.com/advissmedia/yii2-daemon"
     },
     "authors": [
         {
@@ -21,7 +21,7 @@
     },
     "autoload": {
         "psr-4": {
-            "advissMedia\\daemon\\": ""
+            "advissmedia\\daemon\\": ""
         }
     }
 }
