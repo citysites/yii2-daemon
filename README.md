@@ -1,6 +1,6 @@
 Daemons system for Yii2
 =======================
-Extension provides functionality for simple daemons creation and control
+Extension provides functionality for simple daemons creation and control. There is also a daemons supervisor.
 
 Installation
 ------------
@@ -10,44 +10,82 @@ The preferred way to install this extension is through [composer](http://getcomp
 Either run
 
 ```
-php composer.phar require --prefer-dist vyants/yii2-daemon "*"
+php composer.phar require --prefer-dist advissMedia/yii2-daemon "*"
 ```
 
 or add
 
 ```
-"vyants/yii2-daemon": "*"
+"advissMedia/yii2-daemon": "*"
 ```
 
 to the require section of your `composer.json` file.
 
-### Setting WatcherDaemon
+### Setting WatcherDaemon (Supervisor)
 WatcherDaemon is the main daemon and provides from box. This daemon check another daemons and run, if it need.
 Do the following steps:
 
-1. Create in you console controllers path file WatcherDaemonController.php with following content:
+1. Create in your console controllers path file for ex. DaemonsSupervisorController.php with following content:
 ```
 <?php
 
 namespace console\controllers;
+use \advissMedia\daemon\controllers\WatcherDaemonController;
 
-class WatcherDaemonController extends \vyants\daemon\controllers\WatcherDaemonController
+class DaemonsSupervisorController extends WatcherDaemonController
 {
     /**
      * @return array
      */
-    protected function defineJobs()
+    protected function getDaemonsList()
     {
-        sleep($this->sleep);
         //TODO: modify list, or get it from config, it does not matter
         $daemons = [
-            ['className' => 'OneDaemonController', 'enabled' => true],
-            ['className' => 'AnotherDaemonController', 'enabled' => false]
+            ['className' => 'FirstDaemonController', 'enabled' => true, 'hardKill' => false],
+            ['className' => 'AnotherDaemonController', 'enabled' => false, 'hardKill' => true]
         ];
         return $daemons;
     }
 }
 ```
+or get this jobs array from file, for example json array
+```
+<?php
+
+namespace console\controllers;
+use \advissMedia\daemon\controllers\WatcherDaemonController;
+
+class DaemonsSupervisorController extends WatcherDaemonController
+{
+    /**
+     * @return array
+     */
+    protected function getDaemonsList()
+    {
+        $string = @file_get_contents("/url/or/uri/to/json/file.json");
+        if ($string === false || empty($daemons = json_decode($string,true)))
+            return [];
+        return $daemons;
+    }
+}
+```
+And `file.json` format:
+```
+[
+{
+    "className":"FirstDaemonController",
+	"enabled":"true",
+	"hardKill":"false"
+},
+{
+    "className":"AnotherDaemonController",
+	"enabled":"false",
+	"hardKill":"false"
+}
+]
+```
+or get running daemon list from database
+
 2. No one checks the Watcher. Watcher should run continuously. Add it to your crontab:
 ```
 * * * * * /path/to/yii/project/yii watcher-daemon --demonize=1
@@ -57,13 +95,13 @@ Watcher can't start twice, only one instance can work in the one moment.
 Usage
 -----
 ### Create new daemons
-1. Create in you console controllers path file {NAME}DaemonController.php with following content:
+1. Create in your console controllers path file {NAME}DaemonController.php with following content:
 ```
 <?php
 
 namespace console\controllers;
 
-use \vyants\daemon\DaemonController;
+use \advissMedia\daemon\DaemonController;
 
 class {NAME}DaemonController extends DaemonController
 {
@@ -235,9 +273,14 @@ In your daemon you can override parent properties:
 * `$logDir` - dir where daemons logs is located
 * `$isMultiInstance` - this option allow daemon create self copy for each task. That is, the daemon can simultaneously perform multiple tasks. This is useful when one task requires some time and server resources allows perform many such task.
 * `$maxChildProcesses` - only if `$isMultiInstance=true`. The maximum number of daemons instances. If the maximum number is reached - the system waits until at least one child process to terminate.
-
+* `$isJobsListPersistent` - change jobs list processing method. If false job list processing always while have job and free worker. If true - jobs list processing from first job to last and sleep workers for sleep time after which worker starts again with the processing of the first job.   
+### Daemon control
+Daemon catch a some signal and do some action. Below are the list of catch signals and the actions of the daemon when they are received:
+* **SIGINT**, **SIGTERM** - daemon shutdown, break from loop write log data and closure used resources.
+* **SIGCHLD** - shutdown all child workers, main daemon process still work.
+* **SIGUSR1** - write to linux syslog information about daemon uptime.
+### Logger settings
 If you want to change logging preferences, you may override the function initLogger. Example:
-
 ```
     /**
      * Adjusting logger. You can override it.

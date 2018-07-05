@@ -1,9 +1,10 @@
 <?php
 
-namespace vyants\daemon;
+namespace advissMedia\daemon;
 
 use yii\base\NotSupportedException;
 use yii\console\Controller;
+use yii\console\ExitCode;
 use yii\helpers\Console;
 
 /**
@@ -45,6 +46,11 @@ abstract class DaemonController extends Controller
     public $maxChildProcesses = 10;
 
     /**
+     * @var array
+     */
+    public $connections = [];
+
+    /**
      * @var $currentJobs [] array of running instances
      */
     protected static $currentJobs = [];
@@ -54,6 +60,11 @@ abstract class DaemonController extends Controller
      * @default 32M
      */
     protected $memoryLimit = 268435456;
+
+    /**
+     * @var int timestamp then daemon execute
+     */
+    private static $daemon_uptime;
 
     /**
      * @var boolean used for soft daemon stop, set 1 to stop
@@ -66,12 +77,32 @@ abstract class DaemonController extends Controller
      */
     protected $sleep = 5;
 
+    /**
+     * @var bool flag switch between dynamic or persistent array based create jobs list
+     */
+    protected $isJobsListPersistent = false;
+
+    /**
+     * @var string
+     */
     protected $pidDir = "@runtime/daemons/pids";
 
+    /**
+     * @var string
+     */
     protected $logDir = "@runtime/daemons/logs";
 
+    /**
+     * @var resource
+     */
     private $stdIn;
+    /**
+     * @var resource
+     */
     private $stdOut;
+    /**
+     * @var resource
+     */
     private $stdErr;
 
     /**
@@ -82,11 +113,13 @@ abstract class DaemonController extends Controller
         parent::init();
 
         //set PCNTL signal handlers
-        pcntl_signal(SIGTERM, ['vyants\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGINT, ['vyants\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGHUP, ['vyants\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGUSR1, ['vyants\daemon\DaemonController', 'signalHandler']);
-        pcntl_signal(SIGCHLD, ['vyants\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGHUP, ['advissMedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGTERM, ['advissMedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGINT, ['advissMedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGUSR1, ['advissMedia\daemon\DaemonController', 'signalHandler']);
+        pcntl_signal(SIGCHLD, ['advissMedia\daemon\DaemonController', 'signalHandler']);
+
+        self::$daemon_uptime = time();
     }
 
     function __destruct()
@@ -104,9 +137,12 @@ abstract class DaemonController extends Controller
             $target->enabled = false;
         }
         $config = [
+            'class' => 'yii\log\FileTarget',
             'levels' => ['error', 'warning', 'trace', 'info'],
             'logFile' => \Yii::getAlias($this->logDir) . DIRECTORY_SEPARATOR . $this->getProcessName() . '.log',
             'logVars' => [],
+            'enableRotation' => true, // Enable log rotation if log file exceed 10Mb as default
+            'exportInterval' => 1, // Write each message to disk
             'except' => [
                 'yii\db\*', // Don't include messages from db
             ],
@@ -114,6 +150,8 @@ abstract class DaemonController extends Controller
         $targets['daemon'] = new \yii\log\FileTarget($config);
         \Yii::$app->getLog()->targets = $targets;
         \Yii::$app->getLog()->init();
+        // Flush each message
+        \Yii::$app->getLog()->flushInterval = 1;
     }
 
     /**
@@ -127,18 +165,26 @@ abstract class DaemonController extends Controller
 
     /**
      * Base action, you can\t override or create another actions
+     *
      * @return bool
-     * @throws NotSupportedException
+     * @throws \yii\base\InvalidConfigException
+     * @throws \yii\db\Exception
+     */
+    /**
+     * @return int
+     * @throws \yii\base\ExitException
+     * @throws \yii\base\InvalidConfigException
+     * @throws \yii\db\Exception
      */
     final public function actionIndex()
     {
         if ($this->demonize) {
             $pid = pcntl_fork();
             if ($pid == -1) {
-                $this->halt(self::EXIT_CODE_ERROR, 'pcntl_fork() rise error');
+                $this->halt(ExitCode::UNSPECIFIED_ERROR, 'pcntl_fork() rise error');
             } elseif ($pid) {
                 $this->cleanLog();
-                $this->halt(self::EXIT_CODE_NORMAL);
+                $this->halt(ExitCode::OK);
             } else {
                 posix_setsid();
                 $this->closeStdStreams();
@@ -147,6 +193,8 @@ abstract class DaemonController extends Controller
         $this->changeProcessName();
 
         //run loop
+        if ($this->isJobsListPersistent)
+            return $this->loopFixJobs();
         return $this->loop();
     }
 
@@ -156,7 +204,7 @@ abstract class DaemonController extends Controller
     protected function changeProcessName()
     {
         //rename process
-        if (version_compare(PHP_VERSION, '5.5.0') >= 0) {
+        if (version_compare(PHP_VERSION, '5.5.0', '>=')) {
             cli_set_process_title($this->getProcessName());
         } else {
             if (function_exists('setproctitle')) {
@@ -206,9 +254,8 @@ abstract class DaemonController extends Controller
             }
 
             return true;
-        } else {
-            return false;
         }
+        return false;
     }
 
     /**
@@ -225,6 +272,7 @@ abstract class DaemonController extends Controller
             'taskLimit',
             'isMultiInstance',
             'maxChildProcesses',
+            'connections',
         ];
     }
 
@@ -239,7 +287,7 @@ abstract class DaemonController extends Controller
     /**
      * Fetch one task from array of tasks
      *
-     * @param Array
+     * @param array
      *
      * @return mixed one task
      */
@@ -251,16 +299,18 @@ abstract class DaemonController extends Controller
     /**
      * Main Loop
      *
-     * * @return boolean 0|1
+     * @return int
+     * @throws \yii\base\ExitException
+     * @throws \yii\db\Exception
      */
     final private function loop()
     {
         if (file_put_contents($this->getPidPath(), getmypid())) {
             $this->parentPID = getmypid();
-            \Yii::trace('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.');
+            \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.');
             while (!self::$stopFlag) {
                 if (memory_get_usage() > $this->memoryLimit) {
-                    \Yii::trace('Daemon ' . $this->getProcessName() . ' pid ' .
+                    \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' .
                         getmypid() . ' used ' . memory_get_usage() . ' bytes on ' . $this->memoryLimit .
                         ' bytes allowed by memory limit');
                     break;
@@ -272,12 +322,12 @@ abstract class DaemonController extends Controller
                     while (($job = $this->defineJobExtractor($jobs)) !== null) {
                         //if no free workers, wait
                         if ($this->isMultiInstance && (count(static::$currentJobs) >= $this->maxChildProcesses)) {
-                            \Yii::trace('Reached maximum number of child processes. Waiting...');
+                            \Yii::debug('Reached maximum number of child processes. Waiting...');
                             while (count(static::$currentJobs) >= $this->maxChildProcesses) {
                                 sleep(1);
                                 pcntl_signal_dispatch();
                             }
-                            \Yii::trace(
+                            \Yii::debug(
                                 'Free workers found: ' .
                                 ($this->maxChildProcesses - count(static::$currentJobs)) .
                                 ' worker(s). Delegate tasks.'
@@ -295,9 +345,63 @@ abstract class DaemonController extends Controller
 
             \Yii::info('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' is stopped.');
 
-            return self::EXIT_CODE_NORMAL;
+            return ExitCode::OK;
         }
-        $this->halt(self::EXIT_CODE_ERROR, 'Can\'t create pid file ' . $this->getPidPath());
+        $this->halt(ExitCode::UNSPECIFIED_ERROR, 'Can\'t create pid file ' . $this->getPidPath());
+        return ExitCode::UNSPECIFIED_ERROR;
+    }
+
+    /**
+     * Main Loop for Fix Jobs List
+     *
+     * @return int
+     * @throws \yii\base\ExitException
+     * @throws \yii\db\Exception
+     */
+    final private function loopFixJobs()
+    {
+        if (file_put_contents($this->getPidPath(), getmypid())) {
+            $this->parentPID = getmypid();
+            \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.');
+            while (!self::$stopFlag) {
+                if (memory_get_usage() > $this->memoryLimit) {
+                    \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' .
+                        getmypid() . ' used ' . memory_get_usage() . ' bytes on ' . $this->memoryLimit .
+                        ' bytes allowed by memory limit');
+                    break;
+                }
+                $this->trigger(self::EVENT_BEFORE_ITERATION);
+                $this->renewConnections();
+                $jobs = $this->defineJobs();
+                foreach ($jobs as $job) {
+                    //if no free workers, wait
+                    if ($this->isMultiInstance && (count(static::$currentJobs) >= $this->maxChildProcesses)) {
+                        \Yii::debug('Reached maximum number of child processes. Waiting...');
+                        while (count(static::$currentJobs) >= $this->maxChildProcesses) {
+                            sleep(1);
+                            pcntl_signal_dispatch();
+                        }
+                        \Yii::debug(
+                            'Free workers found: ' .
+                            ($this->maxChildProcesses - count(static::$currentJobs)) .
+                            ' worker(s). Delegate tasks.'
+                        );
+                    }
+                    pcntl_signal_dispatch();
+                    $this->runDaemon($job);
+                }
+
+                sleep($this->sleep);
+                pcntl_signal_dispatch();
+                $this->trigger(self::EVENT_AFTER_ITERATION);
+            }
+
+            \Yii::info('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' is stopped.');
+
+            return ExitCode::OK;
+        }
+        $this->halt(ExitCode::UNSPECIFIED_ERROR, 'Can\'t create pid file ' . $this->getPidPath());
+        return ExitCode::UNSPECIFIED_ERROR;
     }
 
     /**
@@ -334,7 +438,8 @@ abstract class DaemonController extends Controller
                 //restart, not implemented
                 break;
             case SIGUSR1:
-                //user signal, not implemented
+                //Log UpTime message to Unix syslog
+                syslog(LOG_INFO, 'Process uptime: '.self::getUptimeOnString());
                 break;
             case SIGCHLD:
                 if (!$pid) {
@@ -354,8 +459,9 @@ abstract class DaemonController extends Controller
      * Tasks runner
      *
      * @param string $job
-     *
-     * @return boolean
+     * @return bool
+     * @throws \yii\base\ExitException
+     * @throws \yii\db\Exception
      */
     final public function runDaemon($job)
     {
@@ -376,36 +482,36 @@ abstract class DaemonController extends Controller
                 $status = $this->doJob($job);
                 $this->trigger(self::EVENT_AFTER_JOB);
                 if ($status) {
-                    $this->halt(self::EXIT_CODE_NORMAL);
+                    $this->halt(ExitCode::OK);
                 } else {
-                    $this->halt(self::EXIT_CODE_ERROR, 'Child process #' . $pid . ' return error.');
+                    $this->halt(ExitCode::UNSPECIFIED_ERROR, 'Child process #' . $pid . ' return error.');
                 }
             }
         } else {
             $this->trigger(self::EVENT_BEFORE_JOB);
             $status = $this->doJob($job);
             $this->trigger(self::EVENT_AFTER_JOB);
-
-            return $status;
         }
+        return $status;
     }
 
     /**
      * Stop process and show or write message
      *
-     * @param $code int -1|0|1
-     * @param $message string
+     * @param int $code -1|0|1
+     * @param string|null $message
+     * @throws \yii\base\ExitException
      */
     protected function halt($code, $message = null)
     {
         if ($message !== null) {
-            if ($code == self::EXIT_CODE_ERROR) {
+            if ($code === ExitCode::UNSPECIFIED_ERROR) {
                 \Yii::error($message);
                 if (!$this->demonize) {
                     $message = Console::ansiFormat($message, [Console::FG_RED]);
                 }
             } else {
-                \Yii::trace($message);
+                \Yii::debug($message);
             }
             if (!$this->demonize) {
                 $this->writeConsole($message);
@@ -418,14 +524,23 @@ abstract class DaemonController extends Controller
 
     /**
      * Renew connections
-     * @throws \yii\base\InvalidConfigException
+     *
      * @throws \yii\db\Exception
      */
     protected function renewConnections()
     {
-        if (isset(\Yii::$app->db)) {
-            \Yii::$app->db->close();
-            \Yii::$app->db->open();
+        if (count($this->connections) === 0) {
+            if (isset(\Yii::$app->db)) {
+                \Yii::$app->db->close();
+                \Yii::$app->db->open();
+            }
+        } else {
+            foreach ($this->connections as $connect) {
+                if (isset(\Yii::$app->$connect)) {
+                    \Yii::$app->$connect->close();
+                    \Yii::$app->$connect->open();
+                }
+            }
         }
     }
 
@@ -493,7 +608,7 @@ abstract class DaemonController extends Controller
      */
     public function stderr($string)
     {
-        if (!$this->demonize && is_resource(\STDERR)) {
+        if (!$this->demonize && is_resource(STDERR)) {
             return parent::stderr($string);
         } else {
             return false;
@@ -514,5 +629,19 @@ abstract class DaemonController extends Controller
     protected function flushLog($final = false)
     {
         \Yii::$app->log->logger->flush($final);
+    }
+
+    /**
+     * Return Uptime in string representation
+     *
+     * @return false|string
+     */
+    public static function getUptimeOnString()
+    {
+        $delta = time() - self::$daemon_uptime;
+        if ($delta > (24 * 60 * 60)) {
+            return gmdate('j \d\a\y\(\s\) H:i:s \h\o\u\r\s', $delta);
+        }
+        return gmdate('H:i:s \h\o\u\r\s', $delta);
     }
 }
