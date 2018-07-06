@@ -72,16 +72,16 @@ class DaemonsSupervisorController extends WatcherDaemonController
 And `file.json` format:
 ```
 [
-{
-    "className":"FirstDaemonController",
-	"enabled":"true",
-	"hardKill":"false"
-},
-{
-    "className":"AnotherDaemonController",
-	"enabled":"false",
-	"hardKill":"false"
-}
+   {
+	"daemon":"FirstDaemonController",
+	"enabled":true,
+	"hardKill":false
+   },
+   {
+	"daemon":"AnotherDaemonController",
+	"enabled":false,
+	"hardKill":false
+   }
 ]
 ```
 or get running daemon list from database

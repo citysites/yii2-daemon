@@ -45,16 +45,16 @@ abstract class WatcherDaemonController extends DaemonController
     {
         $pid_file = $this->getPidPath($job['daemon']);
 
-        \Yii::debug('Check daemon ' . $job['daemon']);
+        \Yii::debug('Check daemon [' . $job['daemon'] . ']');
         if (file_exists($pid_file)) {
             $pid = file_get_contents($pid_file);
             if ($this->isProcessRunning($pid)) {
                 if ($job['enabled']) {
-                    \Yii::debug('Daemon ' . $job['daemon'] . ' running and working fine');
+                    \Yii::debug('Daemon [' . $job['daemon'] . '] running and working fine');
 
                     return true;
                 } else {
-                    \Yii::warning('Daemon ' . $job['daemon'] . ' running, but disabled in config. Send SIGTERM signal.');
+                    \Yii::warning('Daemon [' . $job['daemon'] . '] running, but disabled in config. Send SIGTERM signal.');
                     if (isset($job['hardKill']) && $job['hardKill']) {
                         posix_kill($pid, SIGKILL);
                     } else {
@@ -65,9 +65,9 @@ abstract class WatcherDaemonController extends DaemonController
                 }
             }
         }
-        \Yii::error('Daemon pid not found.', __METHOD__);
+        //\Yii::error('Daemon pid not found.', __METHOD__);
         if ($job['enabled']) {
-            \Yii::debug('Try to run daemon ' . $job['daemon'] . '.');
+            \Yii::debug('Try to run daemon [' . $job['daemon'] . '].');
             $command_name = $job['daemon'] . DIRECTORY_SEPARATOR . 'index';
             //flush log before fork
             $this->flushLog(true);
@@ -82,10 +82,11 @@ abstract class WatcherDaemonController extends DaemonController
                 $this->halt(0);
             } else {
                 $this->initLogger();
-                \Yii::debug('Daemon ' . $job['daemon'] . ' is running with pid ' . $pid);
+                \Yii::debug('Daemon [' . $job['daemon'] . '] is running with pid ' . $pid);
             }
+        } else {
+            \Yii::debug('Daemon [' . $job['daemon'] . '] is disabled.');
         }
-        \Yii::debug('Daemon ' . $job['daemon'] . ' is checked.');
 
         return true;
     }
