@@ -65,7 +65,7 @@ abstract class WatcherDaemonController extends DaemonController
                 }
             }
         }
-        \Yii::error('Daemon pid not found.');
+        \Yii::error('Daemon pid not found.', __METHOD__);
         if ($job['enabled']) {
             \Yii::debug('Try to run daemon ' . $job['daemon'] . '.');
             $command_name = $job['daemon'] . DIRECTORY_SEPARATOR . 'index';
