@@ -125,6 +125,72 @@ class {NAME}DaemonController extends DaemonController
         Don't forget to mark task as completed in your task source
         */
     }
+
+
+    const DEF_FIRST_JOB = 1;
+    const DEF_SOCOND_JOB = 3;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function init()
+    {
+        parent::init();
+        /*
+         * Set type of jobs list can be processed
+         */
+        $this->isJobsListPersistent = true;
+        /*
+         * Array connection name for renew connections for daemon process
+         */
+        $this->connections = ['pgdb', 'sqltdb'];
+    }
+
+    /**
+     * @return array
+     */
+    protected function defineJobs()
+    {
+        /*
+        TODO: return task list, extracted from DB, queue managers or jast array. 
+        Extract tasks in small portions, to reduce memory usage.
+        */
+
+        return [
+            ['job_id' => self::DEF_FIRST_JOB],
+            ['job_id' => self::DEF_SECOND_JOB]
+        ];
+    }
+
+    /**
+     * @param array $job
+     * @return bool
+     * @throws \Exception
+     * @throws \Throwable
+     * @throws \yii\db\Exception
+     */
+    protected function doJob($job)
+    {
+        /*
+        TODO: implement you logic
+        Don't forget to mark task as completed in your task source
+        */
+
+        if (array_key_exists('job_id', $job)) {
+            switch ($job['job_id']) {
+                case self::DEF_FIRST_JOB:
+                    $ret = $this->processFirstJob();
+                    break;
+                case self::DEF_SECOND_JOB:
+                    $ret = $this->processSecondJob();
+                    break;
+                default:
+                    $ret = false;
+            }
+            return $ret;
+        }
+        return false;
+    }
 }
 ```
 2. Implement logic. 
