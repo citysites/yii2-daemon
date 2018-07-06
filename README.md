@@ -362,6 +362,7 @@ If you want to change logging preferences, you may override the function initLog
             'levels' => ['error', 'warning', 'trace', 'info'],
             'logFile' => \Yii::getAlias($this->logDir) . DIRECTORY_SEPARATOR . $this->shortClassName() . '.log',
             'logVars'=>[], // Don't log all variables
+            'enableRotation' => true, // Enable log rotation if log file exceed 10Mb as default
             'exportInterval'=>1, // Write each message to disk
             'except' => [
                 'yii\db\*', // Don't include messages from db
