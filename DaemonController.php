@@ -142,6 +142,8 @@ abstract class DaemonController extends Controller
             'logFile' => \Yii::getAlias($this->logDir) . DIRECTORY_SEPARATOR . $this->getProcessName() . '.log',
             'logVars' => [],
             'enableRotation' => true, // Enable log rotation if log file exceed 10Mb as default
+            'maxLogFiles' => 10,
+            'maxFileSize' => 10240,
             'exportInterval' => 1, // Write each message to disk
             'except' => [
                 'yii\db\*', // Don't include messages from db
@@ -426,9 +428,14 @@ abstract class DaemonController extends Controller
     {
         switch ($signo) {
             case SIGINT:
+                //shutdown
+                self::$stopFlag = true;
+                \Yii::info('Catch SIGINT signal');
+                break;
             case SIGTERM:
                 //shutdown
                 self::$stopFlag = true;
+                \Yii::info('Catch SIGTERM signal');
                 break;
             case SIGHUP:
                 //restart, not implemented
