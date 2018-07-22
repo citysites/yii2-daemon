@@ -533,16 +533,20 @@ abstract class DaemonController extends Controller
     protected function renewConnections()
     {
         if (count($this->connections) === 0) {
-            if (isset(\Yii::$app->db)) {
+            if (\Yii::$app->has('db', false)) {
                 \Yii::$app->db->close();
                 \Yii::$app->db->open();
-            }
+            } else {
+		\Yii::info('No `db` connection to refresh');
+	    }
         } else {
             foreach ($this->connections as $connect) {
-                if (isset(\Yii::$app->$connect)) {
+                if (\Yii::$app->has($connect, false)) {
                     \Yii::$app->$connect->close();
                     \Yii::$app->$connect->open();
-                }
+                } else {
+		    \Yii::info('No `'.$connect.'` connection to refresh');
+		}
             }
         }
     }
