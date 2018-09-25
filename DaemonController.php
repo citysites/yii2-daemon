@@ -445,6 +445,9 @@ abstract class DaemonController extends Controller
                 syslog(LOG_INFO, 'Process uptime: '.self::getUptimeOnString());
                 break;
             case SIGCHLD:
+                if(is_array($pid)) {
+                    $pid = isset($pid['pid']) ? $pid['pid'] : null;
+                }
                 if (!$pid) {
                     $pid = pcntl_waitpid(-1, $status, WNOHANG);
                 }
