@@ -309,10 +309,10 @@ abstract class DaemonController extends Controller
     {
         if (file_put_contents($this->getPidPath(), getmypid())) {
             $this->parentPID = getmypid();
-            \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.', __METHOD__);
+            \Yii::info('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.', __METHOD__);
             while (!self::$stopFlag) {
                 if (memory_get_usage() > $this->memoryLimit) {
-                    \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' .
+                    \Yii::error('Daemon ' . $this->getProcessName() . ' pid ' .
                         getmypid() . ' used ' . memory_get_usage() . ' bytes on ' . $this->memoryLimit .
                         ' bytes allowed by memory limit', __METHOD__);
                     break;
@@ -324,12 +324,12 @@ abstract class DaemonController extends Controller
                     while (($job = $this->defineJobExtractor($jobs)) !== null) {
                         //if no free workers, wait
                         if ($this->isMultiInstance && (count(static::$currentJobs) >= $this->maxChildProcesses)) {
-                            \Yii::debug('Reached maximum number of child processes. Waiting...', __METHOD__);
+                            \Yii::info('Reached maximum number of child processes. Waiting...', __METHOD__);
                             while (count(static::$currentJobs) >= $this->maxChildProcesses) {
                                 sleep(1);
                                 pcntl_signal_dispatch();
                             }
-                            \Yii::debug('Free workers found: ' .
+                            \Yii::info('Free workers found: ' .
                                 ($this->maxChildProcesses - count(static::$currentJobs)) .
                                 ' worker(s). Delegate tasks.', __METHOD__);
                         }
@@ -362,10 +362,10 @@ abstract class DaemonController extends Controller
     {
         if (file_put_contents($this->getPidPath(), getmypid())) {
             $this->parentPID = getmypid();
-            \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.', __METHOD__);
+            \Yii::info('Daemon ' . $this->getProcessName() . ' pid ' . getmypid() . ' started.', __METHOD__);
             while (!self::$stopFlag) {
                 if (memory_get_usage() > $this->memoryLimit) {
-                    \Yii::debug('Daemon ' . $this->getProcessName() . ' pid ' .
+                    \Yii::error('Daemon ' . $this->getProcessName() . ' pid ' .
                         getmypid() . ' used ' . memory_get_usage() . ' bytes on ' . $this->memoryLimit .
                         ' bytes allowed by memory limit', __METHOD__);
                     break;
@@ -376,12 +376,12 @@ abstract class DaemonController extends Controller
                 foreach ($jobs as $job) {
                     //if no free workers, wait
                     if ($this->isMultiInstance && (count(static::$currentJobs) >= $this->maxChildProcesses)) {
-                        \Yii::debug('Reached maximum number of child processes. Waiting...', __METHOD__);
+                        \Yii::info('Reached maximum number of child processes. Waiting...', __METHOD__);
                         while (count(static::$currentJobs) >= $this->maxChildProcesses) {
                             sleep(1);
                             pcntl_signal_dispatch();
                         }
-                        \Yii::debug('Free workers found: ' .
+                        \Yii::info('Free workers found: ' .
                             ($this->maxChildProcesses - count(static::$currentJobs)) .
                             ' worker(s). Delegate tasks.', __METHOD__);
                     }
