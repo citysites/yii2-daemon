@@ -1,5 +1,5 @@
 {
-    "name": "advissmedia/yii2-daemon",
+    "name": "citysites/yii2-daemon",
     "description": "Extension provides functionality for simple daemons creation and control",
     "type": "yii2-extension",
     "keywords": ["yii2","extension", "daemon"],
