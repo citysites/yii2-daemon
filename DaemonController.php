@@ -305,7 +305,7 @@ abstract class DaemonController extends Controller
      * @throws \yii\base\ExitException
      * @throws \yii\db\Exception
      */
-    final private function loop()
+    private function loop()
     {
         if (file_put_contents($this->getPidPath(), getmypid())) {
             $this->parentPID = getmypid();
@@ -358,7 +358,7 @@ abstract class DaemonController extends Controller
      * @throws \yii\base\ExitException
      * @throws \yii\db\Exception
      */
-    final private function loopFixJobs()
+    private function loopFixJobs()
     {
         if (file_put_contents($this->getPidPath(), getmypid())) {
             $this->parentPID = getmypid();

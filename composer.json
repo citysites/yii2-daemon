@@ -12,6 +12,11 @@
             "name": "Vladimir Yants",
             "email": "vladimir.yants@gmail.com",
             "homepage": "https://github.com/vyants/"
+        },
+        {
+            "name": "Yevhen Sanatarchuk",
+            "email": "sanatarchuk@gmail.com",
+            "homepage": "https://github.com/shaperman"
         }
     ],
     "require": {
